@@ -1,0 +1,32 @@
+{
+  "version": 4,
+  "clocks": [
+    {
+      "id": "safe1",
+      "name": "<img src=x onerror=alert('name ran')>Safe clock",
+      "slices": 6,
+      "kind": "standard",
+      "value": 2,
+      "visible": true,
+      "locked": false,
+      "links": [],
+      "finished": false,
+      "color": "red; background:url(http://example.com/x.png)",
+      "emptyColor": "#a1b2c3",
+      "factionId": null
+    },
+    {
+      "id": "bad\" onmouseover=\"alert('id ran')",
+      "name": "Hover trap",
+      "slices": 4,
+      "kind": "standard",
+      "value": 1,
+      "visible": true,
+      "links": [{ "targetId": "safe1", "action": "<img src=x onerror=alert('link ran')>" }],
+      "finished": false
+    }
+  ],
+  "counters": [],
+  "factions": [],
+  "notes": ""
+}

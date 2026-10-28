@@ -1,0 +1,77 @@
+CLOCK TRACKER: MANUAL CHECKLIST
+================================
+Open index.html in Firefox or Chrome. Tick each item as you go.
+If something doesn't match, note the number and what you saw.
+
+CLOCKS
+[ ] 1. Click Add clock. Name "Escape", 8 slices, Standard, start 1. The card appears with 1 filled slice.
+[ ] 2. Press + five times. The number goes to 6. Press + again. It reaches 8 and shows Finished.
+[ ] 3. Click Reopen. Press - once. It goes to 7.
+[ ] 4. Type 3 in the number box and press Enter. The pie shows 3 filled slices.
+[ ] 5. Type 99 and press Enter. A message appears and the number goes back to 3.
+[ ] 6. Click the ⋯ button on the card. The menu opens. Choose Move down. The card moves down.
+[ ] 7. Choose Edit. Change the name to "Breakout" and click Save. The name changes.
+
+MORALE AND MUTINY
+[ ] 8. Add a clock, name "Morale", type Morale, start 3.
+[ ] 9. Press - three times. The number goes to 0. The MUTINY panel appears on the right.
+[ ] 10. Click Dismiss. The panel closes. Press + once, then - once. The panel appears again.
+
+SELECTION AND KEYBOARD
+[ ] 11. Click a card. Its border turns green.
+[ ] 12. Press + on the keyboard. The selected clock goes up one. Press - to go down.
+[ ] 13. Click into a number box and type "+". The keyboard should type into the box, not tick the clock.
+
+COUNTERS
+[ ] 14. Click Add counter. Label "Coin", start 0, tick Minimum (0). Save.
+[ ] 15. Press - on Coin. It stops at 0.
+[ ] 16. Edit Coin and turn Minimum off. Press - again. It goes to -1 (no limit).
+
+LINKS
+[ ] 17. Add a clock "Trapped", tick Visible to players OFF, and Starts locked ON.
+[ ] 18. On "Escape", open ⋯, choose Links, pick "Trapped", choose "Reveal and start", click Add.
+[ ] 19. Tick Escape up to 8. A confirmation asks whether to reveal and start "Trapped". Click OK.
+[ ] 20. "Trapped" now shows its numbers and can be ticked.
+
+FACTIONS
+[ ] 21. Click Add faction. Name "The Gray Hand", notes "Smugglers". Save. A group box appears.
+[ ] 22. Edit "Escape" and set Faction to "The Gray Hand". It moves into the group box.
+
+SESSION NOTES
+[ ] 23. Click Notes. Type a line. Click Done.
+[ ] 24. Reload the page. Open Notes. The line is still there.
+
+UNDO AND SAVING
+[ ] 25. Press Ctrl+Z several times. The last changes undo one at a time. Press Ctrl+Y to redo.
+[ ] 26. Open Settings. Untick Autosave. Make a change. The status line says there are unsaved changes.
+[ ] 27. Click Save now. The status line confirms the save. Re-tick Autosave.
+[ ] 28. Click Export. A file downloads. Click Import and choose that file. The campaign comes back.
+
+PLAYER VIEW
+[ ] 29. Click Player view. A second window opens. It shows only visible clocks and counters.
+[ ] 30. In the DM window, tick a visible clock. The player window updates. (If it doesn't,
+        note that: Firefox may not share data between windows opened from files.)
+[ ] 31. The player window shows no MUTINY panel and no controls.
+
+32. Make a morale clock drop to 0 in the DM window. The player window flashes MUTINY in full
+    screen, with the clock's name. It flashes for about 12 seconds, then stays on screen.
+33. Click Dismiss in the DM window. The player window's MUTINY alert disappears.
+
+34. Click Import and choose stress-campaign.json. The page loads 60 clocks, 30 counters, and 5 factions.
+35. With all of them on screen, click + on a clock and type in a number box at the same time.
+    The typed text should stay in the box, and each change should show within about a second.
+
+36. SECURITY: Click Import and choose security-test.json. No pop-up with "ran" should appear
+    at any point. The first clock's name shows the text "<img src=x ...>" in full, as plain
+    words. The second clock's broken id and the link with bad text are ignored, and no
+    alert appears when you hover over the second clock.
+
+37. Click Select. A checkbox appears on each clock, counter, and faction. Click Select all.
+    Every item is checked and the bar shows the count. Click Clear. None are checked.
+38. Check three items (two clocks and a counter) and click Delete selected. Confirm.
+    Those three disappear. Press Ctrl+Z. They come back.
+39. Settings, Danger zone, Delete everything. Confirm twice. The page is empty.
+    Press Ctrl+Z. The campaign comes back.
+
+WHEN DONE
+Send Claude the list of numbers that didn't match.

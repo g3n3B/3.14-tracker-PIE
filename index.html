@@ -1,0 +1,2449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-a0rp1v2b632YsTTjlto2PxxApCYYNB5gHwK9r1zQFgQ=' 'sha256-Yoo1mu2V70731F3C8vHBSlmC85vf6dLZ+kbOJwMU1tk='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Progress clocks, counters, and factions for tabletop roleplaying games. Works offline in your browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%232e6b4f'/%3E%3Cpath d='M16 16 L16 1 A15 15 0 0 1 31 16 Z' fill='%23f8f1de'/%3E%3C/svg%3E">
+  <title>DM - Clock Tracker</title>
+  <style>
+    :root {
+      --parchment: #f1e6cc;
+      --paper: #f8f1de;
+      --ink: #2b2a26;
+      --ink-soft: #6b675c;
+      --sea: #2e6b4f;
+      --ash: #b9c2bb;
+      --rule: #cfc4a6;
+      --danger: #8b2e2e;
+
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+      --sans: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+      --radius: 10px;
+      --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      padding: 28px 20px 48px;
+      background: var(--parchment);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; color: inherit; }
+
+    .app { width: min(1080px, 100%); margin: 0 auto; }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .title {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .actions { display: flex; gap: 8px; }
+
+    .btn {
+      height: 36px;
+      padding: 0 14px;
+      white-space: nowrap;
+      flex: none;
+      border-radius: 8px;
+      border: 1px solid var(--rule);
+      background: var(--paper);
+      cursor: pointer;
+      transition: background 180ms var(--ease), border-color 180ms var(--ease), color 180ms var(--ease);
+    }
+    .btn:hover { border-color: var(--sea); }
+    .btn.primary { background: var(--sea); border-color: var(--sea); color: var(--paper); }
+    .btn.primary:hover { filter: brightness(0.92); }
+    .btn.ghost { background: transparent; }
+
+    .note {
+      min-height: 1.4em;
+      margin: 6px 0 14px;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+
+    /* Clock grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 18px;
+    }
+    .empty {
+      margin: 60px 0;
+      text-align: center;
+      color: var(--ink-soft);
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      padding: 16px 18px 14px;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.6) inset,
+        0 1px 2px rgba(43, 42, 38, 0.06),
+        0 8px 24px -14px rgba(43, 42, 38, 0.3);
+      text-align: center;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .name {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 19px;
+      font-weight: 600;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
+    .icon {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .icon:hover { border-color: var(--rule); color: var(--ink); }
+    .rule {
+      width: 26px;
+      height: 2px;
+      margin: 8px 0 12px;
+      background: var(--sea);
+      border-radius: 2px;
+    }
+
+    .pie { width: 180px; height: 180px; display: block; margin: 0 auto; }
+    .pie path { transition: fill 320ms var(--ease); }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--paper);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 180ms var(--ease), border-color 180ms var(--ease), transform 120ms var(--ease);
+    }
+    .step:hover:not(:disabled) { background: var(--sea); border-color: var(--sea); color: var(--paper); }
+    .step:active:not(:disabled) { transform: scale(0.94); }
+    .step:disabled { color: var(--ink-soft); border-color: var(--ash); background: transparent; opacity: 0.6; cursor: default; }
+
+    .value {
+      width: 64px;
+      height: 40px;
+      text-align: center;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      -moz-appearance: textfield;
+      appearance: textfield;
+      transition: border-color 160ms var(--ease), background 160ms var(--ease);
+    }
+    .value::-webkit-outer-spin-button,
+    .value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .value:hover:not(:disabled) { border-color: var(--rule); }
+    .value:focus { outline: none; border-color: var(--sea); background: var(--paper); }
+    .value:disabled { color: var(--ink-soft); }
+
+    .status { min-height: 1.4em; margin: 10px 0 0; font-size: 13px; color: var(--ink-soft); }
+    .hidden-note { margin: 4px 0 0; font-size: 12px; color: var(--ink-soft); }
+    .text-button {
+      margin-top: 6px;
+      padding: 4px 8px;
+      border: none;
+      background: transparent;
+      color: var(--sea);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .step:focus-visible, .value:focus-visible, .btn:focus-visible, .icon:focus-visible,
+    .menu button:focus-visible, .text-button:focus-visible, dialog button:focus-visible,
+    dialog input:focus-visible {
+      outline: 2px solid var(--sea);
+      outline-offset: 2px;
+    }
+
+    /* Context menu for a clock */
+    .menu {
+      position: absolute;
+      z-index: 20;
+      width: 170px;
+      padding: 6px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 30px -10px rgba(43, 42, 38, 0.35);
+    }
+    .menu[hidden] { display: none; }
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .menu button:hover { background: var(--parchment); }
+    .menu button.danger { color: var(--danger); }
+
+    /* Add and edit dialog */
+    dialog {
+      width: min(400px, calc(100% - 32px));
+      padding: 22px 24px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 60px -20px rgba(43, 42, 38, 0.5);
+    }
+    dialog { color: var(--ink); }
+    dialog::backdrop { background: rgba(43, 42, 38, 0.35); }
+    dialog h2 {
+      margin: 0 0 14px;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+    }
+    dialog label { display: block; margin: 12px 0 0; font-size: 14px; }
+    dialog label.check { display: flex; align-items: center; gap: 8px; }
+    dialog input[type="text"], dialog input:not([type]), dialog input[type="number"] {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--parchment);
+    }
+    dialog input[type="radio"] { margin-right: 6px; }
+    dialog fieldset { margin: 12px 0 0; padding: 0; border: none; }
+    dialog legend { font-size: 14px; padding: 0; margin-bottom: 4px; }
+    dialog fieldset label { margin: 4px 0; }
+    dialog input:disabled { opacity: 0.55; }
+    .dialog-message { min-height: 1.4em; margin: 10px 0 0; font-size: 13px; color: var(--danger); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn:disabled:hover { border-color: var(--rule); }
+    .hint { margin: 0 0 10px; font-size: 13px; color: var(--ink-soft); }
+    .link-list { list-style: none; margin: 0 0 12px; padding: 0; }
+    .link-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      padding: 8px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--parchment);
+      font-size: 14px;
+    }
+    .link-list .text-button { margin: 0; }
+    .link-add { display: flex; gap: 8px; align-items: center; }
+    .link-add select {
+      flex: 1;
+      min-width: 0;
+      height: 36px;
+      padding: 0 6px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--parchment);
+    }
+    .link-add .btn { height: 36px; }
+    dialog select:focus-visible { outline: 2px solid var(--sea); outline-offset: 2px; }
+
+    .swatches {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+    .swatch-pair { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 120ms var(--ease), border-color 160ms var(--ease);
+    }
+    .swatch:hover { transform: scale(1.08); border-color: var(--ink-soft); }
+
+    .palette {
+      position: absolute;
+      z-index: 20;
+      width: 196px;
+      padding: 10px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 30px -10px rgba(43, 42, 38, 0.35);
+    }
+    .palette[hidden] { display: none; }
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .palette-grid button {
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .palette-grid button:hover { border-color: var(--ink); }
+    .palette-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    .palette-foot .custom { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .palette-foot input[type="color"] {
+      width: 32px;
+      height: 26px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+    }
+
+    dialog fieldset { margin-bottom: 14px; }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .setting-row input[type="color"] {
+      width: 44px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+    }
+    dialog .hint { margin: 0; flex: 1; min-width: 0; }
+
+    /* Player view: only visible clocks, large, with no controls. */
+    #player-root { display: none; }
+    body.player { padding: 40px 32px; }
+    body.player .topbar,
+    body.player .note,
+    body.player #grid,
+    body.player #empty,
+    body.player .menu,
+    body.player .palette,
+    body.player dialog { display: none; }
+    body.player #player-root { display: grid; }
+    body.player .app { width: 100%; }
+
+    .player-grid {
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 32px;
+      justify-items: center;
+    }
+    .player-card { width: 100%; max-width: 420px; text-align: center; }
+    .player-name {
+      margin: 0 0 14px;
+      font-family: var(--serif);
+      font-size: 30px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .player-pie { width: 100%; height: auto; display: block; }
+    .player-status { margin: 14px 0 0; font-size: 18px; color: var(--ink-soft); }
+    .player-waiting { text-align: center; color: var(--ink-soft); font-size: 18px; margin-top: 40vh; }
+
+    .section-title {
+      margin: 30px 0 12px;
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .counter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 18px;
+    }
+    .counter-card .value { width: 100%; height: 56px; font-size: 40px; }
+    .counter-range { margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); }
+    .limit-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .limit-row input[type="number"] { width: 96px; margin-top: 0; }
+    .player-number {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 110px;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+    body.player #counter-grid,
+    body.player #counters-title,
+    body.player #add-counter { display: none; }
+
+    dialog select {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--parchment);
+    }
+
+    .faction {
+      margin-bottom: 28px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .faction:last-child { border-bottom: none; }
+    .faction-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .faction-name {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .faction-notes { margin: 2px 0 0; font-size: 13px; color: var(--ink-soft); }
+    .faction-body {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 18px;
+    }
+    .faction-body .hint { grid-column: 1 / -1; margin: 0; }
+
+    body.player #faction-list,
+    body.player #add-faction { display: none; }
+
+    .card.selected {
+      border-color: var(--sea);
+      box-shadow: 0 0 0 2px rgba(46, 107, 79, 0.25), 0 8px 24px -14px rgba(43, 42, 38, 0.3);
+    }
+
+    .flare {
+      position: fixed;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 30;
+      width: 300px;
+      padding: 28px 24px 22px;
+      background: #3a0000;
+      color: #f5f5f3;
+      border-radius: 12px;
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+    .flare[hidden] { display: none; }
+    .flare-word {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 52px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: #ff4040;
+    }
+    .flare-name { margin: 12px 0 18px; font-size: 16px; overflow-wrap: anywhere; }
+    .flare-dismiss { background: #f5f5f3; color: #3a0000; border-color: #f5f5f3; }
+    body.player .flare { display: none; }
+
+    dialog textarea {
+      display: block;
+      width: 100%;
+      min-height: 220px;
+      padding: 10px 12px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--parchment);
+      font: inherit;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    /* Player view: full-screen mutiny alert that flashes, then holds. */
+    .player-flare {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: #3a0000;
+      color: #f5f5f3;
+      text-align: center;
+    }
+    .player-flare[hidden] { display: none; }
+    .player-flare .flare-word {
+      font-size: min(22vw, 220px);
+      color: #ff4040;
+    }
+    .player-flare .flare-name { font-size: 28px; margin: 0; }
+    .player-flare.flashing { animation: mutiny-flash 0.8s ease-in-out infinite alternate; }
+    .player-flare.steady { animation: none; }
+    @keyframes mutiny-flash {
+      from { background: #3a0000; }
+      to { background: #a31f1f; }
+    }
+    body:not(.player) .player-flare { display: none; }
+
+    .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .preset {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--paper);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .preset { color: var(--ink); }
+    .preset:hover { border-color: var(--ink-soft); }
+    .preset[aria-pressed="true"] { border-color: var(--sea); box-shadow: 0 0 0 1px var(--sea) inset; }
+    .preset .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.15); }
+
+    .card, .faction { position: relative; }
+    body.select-on .card-head, body.select-on .faction-head { padding-left: 30px; }
+    body.select-on .faction-head { margin-left: 30px; }
+    .pick { position: absolute; top: 14px; left: 14px; z-index: 2; display: inline-flex; }
+    .pick input { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--sea); }
+    .select-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+    }
+    .select-bar[hidden] { display: none; }
+    .select-bar .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn.danger { background: var(--danger); border-color: var(--danger); color: var(--paper); }
+    .btn.danger:hover { filter: brightness(1.1); }
+    .btn[aria-pressed="true"] { border-color: var(--sea); box-shadow: 0 0 0 1px var(--sea) inset; }
+    body.player .select-bar { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="title">Clock Tracker</h1>
+      <div class="actions">
+        <button class="btn ghost" id="undo" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
+        <button class="btn ghost" id="redo" type="button" title="Redo (Ctrl+Y)" disabled>Redo</button>
+        <button class="btn ghost" id="open-player" type="button" title="Open the player window to share on screen">Player view</button>
+        <button class="btn ghost" id="settings-open" type="button" title="Settings">Settings</button>
+        <button class="btn ghost" id="import" type="button" title="Load a campaign from a file">Import</button>
+        <button class="btn ghost" id="export" type="button" title="Save a copy of this campaign to a file">Export</button>
+        <button class="btn ghost" id="select-mode" type="button" aria-pressed="false" title="Pick several items to delete at once">Select</button>
+        <button class="btn ghost" id="notes-open" type="button" title="Session notes, saved with the campaign">Notes</button>
+        <button class="btn ghost" id="add-faction" type="button" title="Create a faction to group clocks and counters">Add faction</button>
+        <button class="btn ghost" id="add-counter" type="button" title="Create a new counter">Add counter</button>
+        <button class="btn primary" id="add" type="button" title="Create a new clock">Add clock</button>
+      </div>
+    </header>
+
+    <p class="note" id="note" role="status"></p>
+
+    <div class="select-bar" id="select-bar" hidden>
+      <span id="select-count">0 selected</span>
+      <div class="actions">
+        <button class="btn ghost" id="select-all" type="button" title="Select every clock, counter, and faction">Select all</button>
+        <button class="btn ghost" id="select-clear" type="button" title="Clear the selection">Clear</button>
+        <button class="btn danger" id="delete-selected" type="button" title="Delete the selected items (Ctrl+Z brings them back)" disabled>Delete selected</button>
+        <button class="btn ghost" id="select-done" type="button" title="Leave select mode">Done</button>
+      </div>
+    </div>
+
+    <div id="faction-list"></div>
+    <section class="grid" id="grid" aria-label="Clocks"></section>
+    <p class="empty" id="empty" hidden>No clocks yet. Add one to start.</p>
+
+    <h2 class="section-title" id="counters-title" hidden>Counters</h2>
+    <section class="counter-grid" id="counter-grid" aria-label="Counters"></section>
+    <section class="player-grid" id="player-root" aria-label="Clocks for players"></section>
+  </div>
+
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <div class="menu" id="menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-menu="edit">Edit</button>
+    <button type="button" role="menuitem" data-menu="links">Links</button>
+    <button type="button" role="menuitem" data-menu="up">Move up</button>
+    <button type="button" role="menuitem" data-menu="down">Move down</button>
+    <button type="button" role="menuitem" data-menu="delete" class="danger">Delete</button>
+  </div>
+
+  <div class="palette" id="palette" role="dialog" aria-label="Choose a color" hidden>
+    <div class="palette-grid" id="palette-grid"></div>
+    <div class="palette-foot">
+      <button class="text-button" type="button" data-color="default">Default</button>
+      <label class="custom">Custom
+        <input type="color" id="custom-color" aria-label="Custom color">
+      </label>
+    </div>
+  </div>
+
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="editor-form">
+      <h2 id="editor-title">New clock</h2>
+
+      <label>Name
+        <input id="f-name" type="text" maxlength="60" required>
+      </label>
+
+      <label>Slices
+        <input id="f-slices" type="number" min="1" step="1" value="8">
+      </label>
+
+      <fieldset>
+        <legend>Type</legend>
+        <label><input type="radio" name="kind" value="standard" checked> Standard, fills up and finishes</label>
+        <label><input type="radio" name="kind" value="morale"> Morale, can drop to zero and trigger a mutiny</label>
+      </fieldset>
+
+      <label>Start value
+        <input id="f-start" type="number" step="1" value="1">
+      </label>
+
+      <label>Faction
+        <select id="f-faction"></select>
+      </label>
+
+      <label class="check">
+        <input id="f-visible" type="checkbox" checked> Visible to players
+      </label>
+
+      <label class="check">
+        <input id="f-locked" type="checkbox"> Starts locked (waits for a link)
+      </label>
+
+      <p class="dialog-message" id="editor-message" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button class="btn ghost" id="cancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="player-flare" id="player-flare" role="alert" aria-live="assertive" hidden>
+    <p class="flare-word">MUTINY</p>
+    <p class="flare-name" id="player-flare-name"></p>
+  </div>
+
+  <div class="flare" id="flare" role="alertdialog" aria-labelledby="flare-word" hidden>
+    <p class="flare-word" id="flare-word">MUTINY</p>
+    <p class="flare-name" id="flare-name"></p>
+    <button class="btn flare-dismiss" id="flare-dismiss" type="button">Dismiss</button>
+  </div>
+
+  <dialog id="notes-dialog" aria-labelledby="notes-title">
+    <h2 id="notes-title">Session notes</h2>
+    <p class="hint">Saved with the campaign. Players don't see these.</p>
+    <textarea id="notes-text" aria-label="Session notes" placeholder="Things to remember, names, loose threads..."></textarea>
+    <div class="dialog-actions">
+      <button class="btn primary" id="notes-done" type="button">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="faction-editor" aria-labelledby="faction-title">
+    <form id="faction-form">
+      <h2 id="faction-title">New faction</h2>
+      <label>Name
+        <input id="fac-name" type="text" maxlength="60" required placeholder="The Gray Hand">
+      </label>
+      <label>Notes
+        <input id="fac-notes" type="text" maxlength="160" placeholder="Optional, shown under the name">
+      </label>
+      <p class="dialog-message" id="faction-message" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="btn ghost" id="fac-cancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="counter-editor" aria-labelledby="counter-title">
+    <form id="counter-form">
+      <h2 id="counter-title">New counter</h2>
+
+      <label>Label
+        <input id="c-label" type="text" maxlength="40" required placeholder="Coin, supplies, enemies left">
+      </label>
+
+      <label>Start value
+        <input id="c-start" type="number" step="1" value="0">
+      </label>
+
+      <fieldset>
+        <legend>Limits</legend>
+        <div class="limit-row">
+          <label class="check"><input id="c-min-on" type="checkbox"> Minimum</label>
+          <input id="c-min" type="number" step="1" value="0" disabled aria-label="Minimum value">
+        </div>
+        <div class="limit-row">
+          <label class="check"><input id="c-max-on" type="checkbox"> Maximum</label>
+          <input id="c-max" type="number" step="1" value="10" disabled aria-label="Maximum value">
+        </div>
+        <p class="hint">A limit that's off means that side has no limit.</p>
+      </fieldset>
+
+      <label>Faction
+        <select id="c-faction"></select>
+      </label>
+
+      <label class="check">
+        <input id="c-visible" type="checkbox" checked> Visible to players
+      </label>
+
+      <p class="dialog-message" id="counter-message" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button class="btn ghost" id="c-cancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings" aria-labelledby="settings-title">
+    <h2 id="settings-title">Settings</h2>
+
+    <fieldset>
+      <legend>Danger zone</legend>
+      <div class="setting-row">
+        <span class="hint">Deletes every clock, counter, faction, and note. Ctrl+Z can bring them back this session.</span>
+        <button class="btn danger" id="delete-everything" type="button" title="Delete everything in this campaign">Delete everything</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Look</legend>
+      <div class="preset-row" id="theme-presets" role="group" aria-label="Color presets"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Saving</legend>
+      <label class="check">
+        <input id="s-autosave" type="checkbox"> Autosave every change
+      </label>
+      <div class="setting-row">
+        <span class="hint">Changes are kept in this browser.</span>
+        <button class="btn ghost" id="s-save-now" type="button" title="Save the campaign now">Save now</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Player view</legend>
+      <label class="check">
+        <input id="s-status" type="checkbox"> Show status labels to players
+      </label>
+      <p class="hint">Labels such as Mutiny, Locked, and Finished. Hidden clocks never show.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>New clocks</legend>
+      <div class="setting-row">
+        <span>Filled color</span>
+        <input id="s-filled" type="color" aria-label="Default filled color" title="Filled color for new clocks">
+      </div>
+      <div class="setting-row">
+        <span>Empty color</span>
+        <input id="s-empty" type="color" aria-label="Default empty color" title="Empty color for new clocks">
+      </div>
+      <div class="setting-row">
+        <span class="hint">Colors can still be changed on each clock.</span>
+        <button class="btn ghost" id="s-reset-colors" type="button" title="Go back to the default colors">Reset colors</button>
+      </div>
+    </fieldset>
+
+    <div class="dialog-actions">
+      <button class="btn primary" id="s-done" type="button">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="links" aria-labelledby="links-title">
+    <h2 id="links-title">Links</h2>
+    <p class="hint">When this clock finishes, do one of these to another clock. You confirm each one.</p>
+    <ul class="link-list" id="link-list"></ul>
+    <div class="link-add">
+      <select id="link-target" aria-label="Clock to affect" title="The clock this link affects"></select>
+      <select id="link-action" aria-label="What happens" title="What happens to that clock">
+        <option value="reveal">Reveal</option>
+        <option value="start">Start</option>
+        <option value="reveal and start">Reveal and start</option>
+      </select>
+      <button class="btn primary" id="link-add" type="button" title="Add this link">Add</button>
+    </div>
+    <p class="dialog-message" id="links-message" role="alert"></p>
+    <div class="dialog-actions">
+      <button class="btn ghost" id="links-done" type="button">Done</button>
+    </div>
+  </dialog>
+
+  <script>
+// Clock rules for the D&D clock tracker (browser version).
+// No DOM code here, so every rule can be tested directly with Node.
+
+const STANDARD = "standard"; // range 1..slices, finishes at the top
+const MORALE = "morale";     // range 0..slices, mutiny at zero
+
+const REVEAL = "reveal";
+const START = "start";
+const REVEAL_AND_START = "reveal and start";
+const LINK_ACTIONS = [REVEAL, START, REVEAL_AND_START];
+
+// Security: data from a saved or imported file is checked before the app uses it.
+// Anything that doesn't match these rules is replaced or dropped.
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,40}$/;
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+const LINK_ACTION_LIST = ["reveal", "start", "reveal and start"];
+
+function isId(value) {
+  return typeof value === "string" && ID_PATTERN.test(value);
+}
+
+function isWhole(value) {
+  return Number.isSafeInteger(value);
+}
+
+function cleanColor(value) {
+  return typeof value === "string" && HEX_COLOR_PATTERN.test(value) ? value : "";
+}
+
+function cleanLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links
+    .filter((l) => l && isId(l.targetId) && LINK_ACTION_LIST.includes(l.action))
+    .map((l) => ({ targetId: l.targetId, action: l.action }));
+}
+
+function newId() {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function minValue(clock) {
+  return clock.kind === MORALE ? 0 : 1;
+}
+
+function maxValue(clock) {
+  return clock.slices;
+}
+
+// Build a clock from partial settings, checking the same rules as the Python version.
+function makeClock(options = {}) {
+  if (!isWhole(options.slices ?? 8)) throw new Error("Slices must be a whole number");
+  if (!isWhole(options.value ?? 1)) throw new Error("Value must be a whole number");
+  const clock = {
+    id: isId(options.id) ? options.id : newId(),
+    name: String(options.name ?? "").slice(0, 60),
+    slices: options.slices ?? 8,
+    kind: options.kind ?? STANDARD,
+    value: options.value ?? 1,
+    visible: options.visible !== false,
+    locked: options.locked === true,
+    links: cleanLinks(options.links),
+    finished: options.finished === true,
+    color: cleanColor(options.color),
+    emptyColor: cleanColor(options.emptyColor),
+    outlineColor: cleanColor(options.outlineColor),
+    factionId: isId(options.factionId) ? options.factionId : null,
+  };
+  if (clock.kind !== STANDARD && clock.kind !== MORALE) {
+    throw new Error(`Unknown clock kind: ${clock.kind}`);
+  }
+  if (clock.slices < 1) {
+    throw new Error("A clock needs at least one slice");
+  }
+  if (clock.value < minValue(clock) || clock.value > clock.slices) {
+    throw new RangeError(
+      `Starting value ${clock.value} is outside ${minValue(clock)}..${clock.slices}`
+    );
+  }
+  if (clock.value === clock.slices && clock.kind === STANDARD) {
+    clock.finished = true;
+  }
+  return clock;
+}
+
+// Button changes: clamp to the range. Returns "mutiny", "finished", or null.
+function step(clock, amount) {
+  if (clock.locked || clock.finished) return null;
+
+  const before = clock.value;
+  clock.value = Math.max(minValue(clock), Math.min(maxValue(clock), clock.value + amount));
+
+  if (clock.kind === MORALE && before > 0 && clock.value === 0) return "mutiny";
+  if (clock.kind === STANDARD && clock.value === maxValue(clock)) {
+    clock.finished = true;
+    return "finished";
+  }
+  return null;
+}
+
+// Typed changes: values outside the range are rejected with an error.
+function setValue(clock, newValue) {
+  if (newValue < minValue(clock) || newValue > maxValue(clock)) {
+    throw new RangeError(`${newValue} is outside ${minValue(clock)}..${maxValue(clock)}`);
+  }
+  if (clock.locked || clock.finished) return null;
+  return step(clock, newValue - clock.value);
+}
+
+function reopen(clock) {
+  clock.finished = false;
+}
+
+function unlock(clock) {
+  clock.locked = false;
+}
+
+function status(clock) {
+  if (clock.kind === MORALE && clock.value === 0) return "Mutiny";
+  if (clock.locked) return "Locked";
+  if (clock.finished) return "Finished";
+  return "Active";
+}
+
+function filledSlices(clock) {
+  return clock.value;
+}
+
+// Counters: a labeled number with an optional minimum and maximum.
+// A null limit means that side is open-ended.
+function makeCounter(options = {}) {
+  const min = options.min ?? null;
+  const max = options.max ?? null;
+  if (!isWhole(options.value ?? 0)) throw new Error("Value must be a whole number");
+  if (min !== null && !isWhole(min)) throw new Error("Minimum must be a whole number");
+  if (max !== null && !isWhole(max)) throw new Error("Maximum must be a whole number");
+  const counter = {
+    id: isId(options.id) ? options.id : newId(),
+    label: String(options.label ?? "").slice(0, 40),
+    value: options.value ?? 0,
+    min,
+    max,
+    visible: options.visible !== false,
+    factionId: isId(options.factionId) ? options.factionId : null,
+  };
+  if (counter.min !== null && counter.max !== null && counter.min > counter.max) {
+    throw new RangeError("The minimum can't be more than the maximum");
+  }
+  if (!counterInRange(counter, counter.value)) {
+    throw new RangeError(`Starting value ${counter.value} is outside ${counterRangeText(counter)}`);
+  }
+  return counter;
+}
+
+function counterInRange(counter, value) {
+  if (counter.min !== null && value < counter.min) return false;
+  if (counter.max !== null && value > counter.max) return false;
+  return true;
+}
+
+// Buttons clamp to the limits.
+function stepCounter(counter, amount) {
+  let value = counter.value + amount;
+  if (counter.min !== null) value = Math.max(counter.min, value);
+  if (counter.max !== null) value = Math.min(counter.max, value);
+  counter.value = value;
+}
+
+// Typed values outside the limits are rejected.
+function setCounterValue(counter, value) {
+  if (!counterInRange(counter, value)) {
+    throw new RangeError(`${value} is outside ${counterRangeText(counter)}`);
+  }
+  counter.value = value;
+}
+
+function counterRangeText(counter) {
+  if (counter.min !== null && counter.max !== null) return `${counter.min} to ${counter.max}`;
+  if (counter.min !== null) return `${counter.min} or more`;
+  if (counter.max !== null) return `${counter.max} or less`;
+  return "no limit";
+}
+
+const api = {
+  STANDARD, MORALE, REVEAL, START, REVEAL_AND_START, LINK_ACTIONS,
+  makeClock, step, setValue, reopen, unlock, status, filledSlices,
+  minValue, maxValue,
+  makeCounter, stepCounter, setCounterValue, counterInRange, counterRangeText,
+  isId, cleanColor,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = api;
+}
+  </script>
+  <script>
+    const STORAGE_KEY = "clockTracker.campaign.v1";
+
+    let clocks = [];
+    let menuClock = null;
+    let editingClock = null;
+    let linksClock = null;
+    let counters = [];
+    let factions = [];
+    let selectMode = false;
+    const multi = new Set(); // keys: "k:" clock, "c:" counter, "f:" faction
+    let notes = "";
+    let selected = null; // { kind: "clock" | "counter", id }
+    let editingFaction = null;
+    let editingCounter = null;
+    let menuKind = "clock";
+
+    // Undo and redo: every change is a snapshot of the campaign.
+    let undoStack = [];
+    let redoStack = [];
+    let lastState = null;
+
+    const DEFAULT_FILLED = "#2e6b4f";
+    const DEFAULT_EMPTY = "#b9c2bb";
+    const UNDO_LIMIT = 50;
+    const PLAYER_KEY = "clockTracker.playerView.v1";
+    const MUTINY_EVENT_KEY = "clockTracker.mutinyEvent";
+
+    // Page looks. Each preset sets the page's colors. Clocks with their own colors keep them.
+    const THEMES = {
+      parchment: {
+        label: "Parchment",
+        vars: {
+          parchment: "#f1e6cc", paper: "#f8f1de", ink: "#2b2a26", "ink-soft": "#6b675c",
+          sea: "#2e6b4f", ash: "#b9c2bb", rule: "#cfc4a6", danger: "#8b2e2e",
+        },
+      },
+      forest: {
+        label: "Forest",
+        vars: {
+          parchment: "#1d2b20", paper: "#26372a", ink: "#e7ecd9", "ink-soft": "#a9b59c",
+          sea: "#8fbf6a", ash: "#3d4f3f", rule: "#3f5642", danger: "#e0826f",
+        },
+      },
+      galaxy: {
+        label: "Galaxy",
+        vars: {
+          parchment: "#14112b", paper: "#1d1a3d", ink: "#ece8ff", "ink-soft": "#a9a2d6",
+          sea: "#8f7bff", ash: "#3a3560", rule: "#3d3672", danger: "#ff7aa8",
+        },
+      },
+      sea: {
+        label: "Sea",
+        vars: {
+          parchment: "#bfe3e8", paper: "#dff2f5", ink: "#0b2b36", "ink-soft": "#2f5f6b",
+          sea: "#0a6478", ash: "#8dbcc4", rule: "#72aab4", danger: "#a8402f",
+        },
+      },
+      ember: {
+        label: "Ember",
+        vars: {
+          parchment: "#2a1c17", paper: "#3a261f", ink: "#f3e3d2", "ink-soft": "#b89a86",
+          sea: "#d9733a", ash: "#5a4035", rule: "#5a4035", danger: "#ff8a70",
+        },
+      },
+    };
+
+    function applyThemeVars(name) {
+      const theme = THEMES[name] || THEMES.parchment;
+      for (const [key, value] of Object.entries(theme.vars)) {
+        document.documentElement.style.setProperty(`--${key}`, value);
+      }
+    }
+
+    function renderPresets() {
+      $("theme-presets").innerHTML = Object.entries(THEMES).map(([key, theme]) => {
+        const v = theme.vars;
+        const pressed = (settings.theme || "parchment") === key;
+        return `
+          <button class="preset" type="button" data-theme="${key}" aria-pressed="${pressed}">
+            <span class="dot" style="background:${v.parchment}"></span>
+            <span class="dot" style="background:${v.sea}"></span>
+            <span class="dot" style="background:${v.ash}"></span>
+            ${theme.label}
+          </button>`;
+      }).join("");
+    }
+
+    document.getElementById("theme-presets").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-theme]");
+      if (!button) return;
+      settings.theme = button.dataset.theme;
+      saveSettings();
+      applyThemeVars(settings.theme);
+      renderPresets();
+    });
+    const SETTINGS_KEY = "clockTracker.settings.v1";
+    const DEFAULT_SETTINGS = {
+      autosave: true,
+      showStatus: true,
+      theme: "parchment",
+      filledColor: DEFAULT_FILLED,
+      emptyColor: DEFAULT_EMPTY,
+    };
+    let settings = { ...DEFAULT_SETTINGS };
+    let dirty = false;
+
+    // The same file serves both windows. ?view=player opens the player window.
+    const isPlayerView = new URLSearchParams(location.search).get("view") === "player";
+    let playerWindow = null;
+    if (isPlayerView) {
+      document.body.classList.add("player");
+      document.title = "Players - Clock Tracker";
+    }
+    const PRESET_COLORS = [
+      "#2e6b4f", "#4b5d73", "#b8862b", "#9b4b3a",
+      "#6e4a6b", "#2f7f7a", "#7d7568", "#2b2a26",
+    ];
+    let paletteClock = null;
+    let paletteSlot = null;
+
+    const ACTION_TEXT = {
+      "reveal": "Reveal",
+      "start": "Start",
+      "reveal and start": "Reveal and start",
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const grid = $("grid");
+    const emptyLine = $("empty");
+    const noteLine = $("note");
+    const menu = $("menu");
+    const editor = $("editor");
+    const editorForm = $("editor-form");
+    const editorMessage = $("editor-message");
+    const importFile = $("import-file");
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, (ch) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+      ));
+    }
+
+    function showNote(text) {
+      noteLine.textContent = text;
+    }
+
+    // Storage: the campaign is saved in this browser after every change.
+    function load() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem(isPlayerView ? PLAYER_KEY : STORAGE_KEY);
+      } catch (err) {
+        showNote("Browser storage is blocked, so changes won't be kept. Use Export to keep a copy.");
+        return;
+      }
+      if (!raw) return;
+      try {
+        applySnapshot(raw);
+      } catch (err) {
+        clocks = [];
+        counters = [];
+        showNote("The saved campaign could not be read: " + err.message);
+      }
+    }
+
+    // Players only ever read this copy: visible clocks and counters, nothing hidden.
+    function writePlayerSnapshot() {
+      try {
+        const visibleClocks = clocks.filter((c) => c.visible).map((c) => ({
+          id: c.id, name: c.name, slices: c.slices, kind: c.kind, value: c.value,
+          locked: c.locked, finished: c.finished, visible: true,
+          color: c.color, emptyColor: c.emptyColor, outlineColor: c.outlineColor,
+        }));
+        const visibleCounters = counters.filter((c) => c.visible).map((c) => ({
+          id: c.id, label: c.label, value: c.value, min: c.min, max: c.max, visible: true,
+        }));
+        localStorage.setItem(PLAYER_KEY, JSON.stringify({
+          version: 4, clocks: visibleClocks, counters: visibleCounters, factions: [], notes: "",
+        }));
+      } catch (err) {
+        // The player window will catch up on the next save.
+      }
+    }
+
+    function save() {
+      writePlayerSnapshot();
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, clocks, counters, factions, notes }));
+        dirty = false;
+      } catch (err) {
+        dirty = true;
+        const full = err && (err.name === "QuotaExceededError" || err.code === 22);
+        showNote(full
+          ? "Browser storage is full, so this change isn't saved. Use Export to keep a copy, then delete old items."
+          : "Could not save. Use Export to keep a copy.");
+      }
+    }
+
+    function saveNow() {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      save();
+      if (!dirty) showNote("Saved.");
+    }
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (raw) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      } catch (err) {
+        settings = { ...DEFAULT_SETTINGS };
+      }
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (err) {
+        showNote("Could not save settings in this browser.");
+      }
+    }
+
+    // Warn before closing a tab that has changes not saved yet.
+    window.addEventListener("beforeunload", (event) => {
+      if (dirty) event.preventDefault();
+    });
+
+    function makeFaction(f) {
+      if (!f || typeof f !== "object") throw new Error("A faction in this file is damaged.");
+      if (typeof f.name !== "string" || !f.name.trim()) throw new Error("A faction in this file has no name.");
+      return {
+        id: isId(f.id) ? f.id : newId(),
+        name: f.name.trim().slice(0, 60),
+        notes: typeof f.notes === "string" ? f.notes.slice(0, 160) : "",
+      };
+    }
+
+    function campaignSnapshot() {
+      return JSON.stringify({ clocks, counters, factions, notes });
+    }
+
+    function applySnapshot(text) {
+      const data = JSON.parse(text);
+      clocks = (data.clocks || []).map((c) => makeClock(c));
+      counters = (data.counters || []).map((c) => makeCounter(c));
+      factions = (data.factions || []).map(makeFaction);
+      notes = (typeof data.notes === "string" ? data.notes : "");
+    }
+
+    let saveTimer = null;
+
+    // Autosave waits a moment after the last change, then saves once.
+    function scheduleSave() {
+      dirty = true;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        saveTimer = null;
+        save();
+      }, 400);
+    }
+
+    window.addEventListener("pagehide", () => {
+      if (saveTimer !== null) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        save();
+      }
+    });
+
+    function changed() {
+      const state = campaignSnapshot();
+      if (state !== lastState) {
+        if (lastState !== null) {
+          undoStack.push(lastState);
+          if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+        }
+        redoStack = [];
+        lastState = state;
+      }
+      if (settings.autosave) {
+        scheduleSave();
+      } else {
+        dirty = true;
+        showNote("Unsaved changes. Use Save now in Settings.");
+      }
+      render();
+      updateHistory();
+    }
+
+    function restore(state) {
+      applySnapshot(state);
+      lastState = state;
+      if (settings.autosave) {
+        save();
+      } else {
+        dirty = true;
+      }
+      render();
+      updateHistory();
+    }
+
+    function undo() {
+      if (!undoStack.length) return showNote("Nothing to undo.");
+      redoStack.push(lastState);
+      restore(undoStack.pop());
+      showNote("Undone.");
+    }
+
+    function redo() {
+      if (!redoStack.length) return showNote("Nothing to redo.");
+      undoStack.push(lastState);
+      restore(redoStack.pop());
+      showNote("Redone.");
+    }
+
+    function updateHistory() {
+      $("undo").disabled = undoStack.length === 0;
+      $("redo").disabled = redoStack.length === 0;
+    }
+
+    // Ticks and typed values go through these, so finishing a clock can trigger its links.
+    function applyStep(clock, amount) {
+      showNote("");
+      const event = step(clock, amount);
+      if (event === "finished") runLinks(clock);
+      if (event === "mutiny") showMutiny(clock);
+      changed();
+    }
+
+    function applyValue(clock, number) {
+      const event = setValue(clock, number);
+      showNote("");
+      if (event === "finished") runLinks(clock);
+      if (event === "mutiny") showMutiny(clock);
+      changed();
+    }
+
+    function showMutiny(clock) {
+      $("flare-name").textContent = clock.name;
+      $("flare").hidden = false;
+      $("flare-dismiss").focus();
+      // Writing this is what tells the player window to flash.
+      try {
+        localStorage.setItem(MUTINY_EVENT_KEY, JSON.stringify({ id: newId(), name: clock.name }));
+      } catch (err) {
+        showNote("Could not tell the player window about the mutiny.");
+      }
+    }
+
+    $("flare-dismiss").addEventListener("click", () => {
+      $("flare").hidden = true;
+      try {
+        localStorage.removeItem(MUTINY_EVENT_KEY);
+      } catch (err) {
+        // Nothing to clear if storage is blocked.
+      }
+    });
+
+    // Each link asks first. Nothing changes until the DM says yes.
+    function runLinks(clock) {
+      for (const link of clock.links) {
+        const target = findClock(link.targetId);
+        if (!target) continue;
+        const verb = (ACTION_TEXT[link.action] || link.action).toLowerCase();
+        if (!confirm(`"${clock.name}" finished. ${verb[0].toUpperCase() + verb.slice(1)} "${target.name}" now?`)) {
+          continue;
+        }
+        if (link.action === "reveal" || link.action === "reveal and start") target.visible = true;
+        if (link.action === "start" || link.action === "reveal and start") target.locked = false;
+      }
+    }
+
+    function findClock(id) {
+      return clocks.find((c) => c.id === id) || null;
+    }
+
+    function pieMarkup(clock) {
+      const center = 100;
+      const r = 96;
+      const angle = 360 / clock.slices;
+      const parts = [];
+      for (let i = 0; i < clock.slices; i++) {
+        const start = -90 + i * angle;
+        const fill = i < clock.value
+          ? (clock.color || "var(--sea)")
+          : (clock.emptyColor || "var(--ash)");
+        parts.push(
+          `<path d="${slicePath(center, center, r, start, start + angle)}" ` +
+          `style="fill:${fill};stroke:var(--paper)" stroke-width="3" stroke-linejoin="round"/>`
+        );
+      }
+      return parts.join("");
+    }
+
+    // Angles run clockwise from 12 o'clock, which is -90 degrees in SVG.
+    function slicePath(cx, cy, r, startDeg, endDeg) {
+      const point = (deg) => [
+        cx + r * Math.cos((deg * Math.PI) / 180),
+        cy + r * Math.sin((deg * Math.PI) / 180),
+      ];
+      const [x1, y1] = point(startDeg);
+      const [x2, y2] = point(endDeg);
+      const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+      return `M 100 100 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    }
+
+    function cardMarkup(clock) {
+      const name = escapeHtml(clock.name);
+      const label = status(clock);
+      const minusOff = clock.finished || clock.locked || clock.value <= minValue(clock);
+      const plusOff = clock.finished || clock.locked || clock.value >= maxValue(clock);
+      const inputOff = clock.finished || clock.locked;
+      const reopen = clock.finished && clock.kind === STANDARD
+        ? '<button class="text-button" type="button" data-action="reopen">Reopen</button>'
+        : "";
+      return `
+        <article class="card" data-id="${clock.id}">
+          ${pickBox("k:" + clock.id)}
+          <div class="card-head">
+            <h2 class="name">${name}</h2>
+            <button class="icon" type="button" data-action="menu"
+                    aria-label="More options for ${name}" title="More options">&#8943;</button>
+          </div>
+          <div class="rule" aria-hidden="true"></div>
+          <svg class="pie" viewBox="0 0 200 200" role="img"
+               aria-label="${name}: ${clock.value} of ${clock.slices}">${pieMarkup(clock)}</svg>
+          <div class="swatches">
+            <span class="swatch-pair">
+              <button class="swatch" type="button" data-action="pick" data-slot="color"
+                      style="background:${clock.color || "var(--sea)"}"
+                      aria-label="Filled color for ${name}" title="Change the filled color"></button>
+              Filled
+            </span>
+            <span class="swatch-pair">
+              <button class="swatch" type="button" data-action="pick" data-slot="emptyColor"
+                      style="background:${clock.emptyColor || "var(--ash)"}"
+                      aria-label="Empty color for ${name}" title="Change the empty color"></button>
+              Empty
+            </span>
+          </div>
+          <div class="controls">
+            <button class="step" type="button" data-action="minus" aria-label="Subtract one"
+                    title="Subtract one (or press -)" ${minusOff ? "disabled" : ""}>&minus;</button>
+            <input class="value" type="number" inputmode="numeric" data-action="type"
+                   value="${clock.value}" aria-label="Current value"
+                   title="Type a value and press Enter" ${inputOff ? "disabled" : ""}>
+            <button class="step" type="button" data-action="plus" aria-label="Add one"
+                    title="Add one (or press +)" ${plusOff ? "disabled" : ""}>+</button>
+          </div>
+          <p class="status">${label === "Active" ? "" : label}</p>
+          ${clock.visible ? "" : '<p class="hidden-note">Hidden from players</p>'}
+          ${reopen ? `<div>${reopen}</div>` : ""}
+        </article>`;
+    }
+
+    function playerCardMarkup(clock) {
+      const name = escapeHtml(clock.name);
+      const label = status(clock);
+      const showLabel = settings.showStatus && label !== "Active";
+      return `
+        <article class="player-card">
+          <h2 class="player-name">${name}</h2>
+          <svg class="player-pie" viewBox="0 0 200 200" role="img"
+               aria-label="${name}: ${clock.value} of ${clock.slices}">${pieMarkup(clock)}</svg>
+          ${showLabel ? `<p class="player-status">${label}</p>` : ""}
+        </article>`;
+    }
+
+    function playerCounterMarkup(counter) {
+      const name = escapeHtml(counter.label);
+      return `
+        <article class="player-card player-counter">
+          <h2 class="player-name">${name}</h2>
+          <p class="player-number" aria-label="${name}: ${counter.value}">${counter.value}</p>
+        </article>`;
+    }
+
+    function counterMarkup(counter) {
+      const name = escapeHtml(counter.label);
+      const minusOff = counter.min !== null && counter.value <= counter.min;
+      const plusOff = counter.max !== null && counter.value >= counter.max;
+      return `
+        <article class="card counter-card" data-counter-id="${counter.id}">
+          ${pickBox("c:" + counter.id)}
+          <div class="card-head">
+            <h2 class="name">${name}</h2>
+            <button class="icon" type="button" data-action="menu" data-kind="counter"
+                    aria-label="More options for ${name}" title="More options">&#8943;</button>
+          </div>
+          <div class="rule" aria-hidden="true"></div>
+          <div class="controls">
+            <button class="step" type="button" data-counter-action="minus" aria-label="Subtract one"
+                    title="Subtract one (or press -)" ${minusOff ? "disabled" : ""}>&minus;</button>
+            <input class="value" type="number" inputmode="numeric" data-counter-action="type"
+                   value="${counter.value}" aria-label="${name} value"
+                   title="Type a value and press Enter">
+            <button class="step" type="button" data-counter-action="plus" aria-label="Add one"
+                    title="Add one (or press +)" ${plusOff ? "disabled" : ""}>+</button>
+          </div>
+          <p class="counter-range">${escapeHtml(counterRangeText(counter))}</p>
+          ${counter.visible ? "" : '<p class="hidden-note">Hidden from players</p>'}
+        </article>`;
+    }
+
+    function factionMarkup(faction) {
+      const name = escapeHtml(faction.name);
+      const items = [
+        ...clocks.filter((c) => c.factionId === faction.id).map(cardMarkup),
+        ...counters.filter((c) => c.factionId === faction.id).map(counterMarkup),
+      ];
+      return `
+        <section class="faction" aria-label="${name}">
+          ${pickBox("f:" + faction.id)}
+          <div class="faction-head">
+            <div>
+              <h2 class="faction-name">${name}</h2>
+              ${faction.notes ? `<p class="faction-notes">${escapeHtml(faction.notes)}</p>` : ""}
+            </div>
+            <button class="icon" type="button" data-action="menu" data-kind="faction"
+                    data-faction-id="${faction.id}" aria-label="More options for ${name}"
+                    title="More options">&#8943;</button>
+          </div>
+          <div class="faction-body">
+            ${items.length ? items.join("")
+              : '<p class="hint">Nothing in this faction yet. Pick it under Faction when you add or edit a clock or counter.</p>'}
+          </div>
+        </section>`;
+    }
+
+    // Redraws keep focus and typed text in a number box, so a tick elsewhere never interrupts typing.
+    function render() {
+      const active = document.activeElement;
+      let key = null;
+      let typed = null;
+      if (active instanceof HTMLInputElement && active.matches('[data-action="type"], [data-counter-action="type"]')) {
+        const card = active.closest("[data-id], [data-counter-id]");
+        if (card) {
+          key = active.dataset.counterAction ? `c:${card.dataset.counterId}` : `k:${card.dataset.id}`;
+          typed = active.value;
+        }
+      }
+      renderNow();
+      if (key) {
+        const id = key.slice(2);
+        const input = key.startsWith("c:")
+          ? document.querySelector(`[data-counter-id="${id}"] [data-counter-action="type"]`)
+          : document.querySelector(`.card[data-id="${id}"] [data-action="type"]`);
+        if (input && !input.disabled) {
+          input.value = typed;
+          input.focus();
+        }
+      }
+    }
+
+    function renderNow() {
+      if (isPlayerView) {
+        const parts = [
+          ...clocks.filter((c) => c.visible).map(playerCardMarkup),
+          ...counters.filter((c) => c.visible).map(playerCounterMarkup),
+        ];
+        $("player-root").innerHTML = parts.length
+          ? parts.join("")
+          : '<p class="player-waiting">Waiting for the DM to show a clock.</p>';
+        return;
+      }
+      $("faction-list").innerHTML = factions.map(factionMarkup).join("");
+      grid.innerHTML = clocks.filter((c) => !c.factionId).map(cardMarkup).join("");
+      emptyLine.hidden = clocks.length > 0;
+      $("counter-grid").innerHTML = counters.filter((c) => !c.factionId).map(counterMarkup).join("");
+      $("counters-title").hidden = counters.length === 0;
+      updateSelection();
+    }
+
+    // Player window: the flashing alert. It flashes for about 12 seconds, then holds.
+    let playerFlareTimer = null;
+
+    function showPlayerMutiny(name) {
+      const flare = $("player-flare");
+      $("player-flare-name").textContent = name;
+      flare.hidden = false;
+      flare.classList.remove("steady");
+      void flare.offsetWidth; // restart the animation
+      flare.classList.add("flashing");
+      clearTimeout(playerFlareTimer);
+      playerFlareTimer = setTimeout(() => {
+        flare.classList.remove("flashing");
+        flare.classList.add("steady");
+      }, 12000);
+    }
+
+    function hidePlayerMutiny() {
+      const flare = $("player-flare");
+      clearTimeout(playerFlareTimer);
+      flare.classList.remove("flashing", "steady");
+      flare.hidden = true;
+    }
+
+    // Keeps the player window in step with the DM window.
+    window.addEventListener("storage", (event) => {
+      if (!isPlayerView) return;
+      if (event.key === MUTINY_EVENT_KEY) {
+        if (event.newValue) {
+          const data = JSON.parse(event.newValue);
+          showPlayerMutiny(data.name);
+        } else {
+          hidePlayerMutiny();
+        }
+        return;
+      }
+      if (event.key === PLAYER_KEY || event.key === SETTINGS_KEY) {
+        loadSettings();
+        applyThemeVars(settings.theme);
+        load();
+        render();
+      }
+    });
+
+    $("open-player").addEventListener("click", () => {
+      if (playerWindow && !playerWindow.closed) {
+        playerWindow.focus();
+        return;
+      }
+      const url = location.href.split("?")[0] + "?view=player";
+      playerWindow = window.open(url, "clockTrackerPlayer", "width=1280,height=720");
+    });
+
+    // One set of listeners for every card, so cards can be redrawn freely.
+    const appRoot = document.querySelector(".app");
+
+    appRoot.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      if (button.dataset.kind === "faction") {
+        return openMenu(button, findFaction(button.dataset.factionId), "faction");
+      }
+      const card = button.closest(".card");
+      if (!card) return;
+      const clock = findClock(card.dataset.id);
+      if (!clock) return;
+
+      const action = button.dataset.action;
+      if (action === "menu") return openMenu(button, clock);
+      if (action === "pick") return openPalette(button, clock, button.dataset.slot);
+      if (action === "minus" || action === "plus") {
+        return applyStep(clock, action === "plus" ? 1 : -1);
+      }
+      if (action === "reopen") {
+        reopen(clock);
+        return changed();
+      }
+    });
+
+    appRoot.addEventListener("keydown", (event) => {
+      if (event.target.dataset.action !== "type" || event.key !== "Enter") return;
+      const card = event.target.closest(".card");
+      const clock = findClock(card.dataset.id);
+      const text = event.target.value.trim();
+      const number = Number(text);
+      if (!clock) return;
+      if (text === "" || !Number.isInteger(number)) {
+        showNote(`"${text}" is not a whole number.`);
+        event.target.value = clock.value;
+        return;
+      }
+      try {
+        applyValue(clock, number);
+      } catch (err) {
+        showNote(err.message);
+        event.target.value = clock.value;
+      }
+    });
+
+    // Session notes
+    $("notes-open").addEventListener("click", () => {
+      $("notes-text").value = notes;
+      $("notes-dialog").showModal();
+      $("notes-text").focus();
+    });
+    $("notes-text").addEventListener("change", () => {
+      const value = $("notes-text").value;
+      if (value === notes) return;
+      notes = value;
+      changed();
+    });
+    $("notes-done").addEventListener("click", () => {
+      const value = $("notes-text").value;
+      if (value !== notes) {
+        notes = value;
+        changed();
+      }
+      $("notes-dialog").close();
+    });
+
+    // Factions
+    function findFaction(id) {
+      return factions.find((f) => f.id === id) || null;
+    }
+
+    function fillFactionSelect(select, currentId) {
+      select.innerHTML = '<option value="">No faction</option>' + factions
+        .map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("");
+      select.value = currentId && findFaction(currentId) ? currentId : "";
+    }
+
+    function openFactionEditor(faction) {
+      editingFaction = faction;
+      $("faction-title").textContent = faction ? "Edit faction" : "New faction";
+      $("fac-name").value = faction ? faction.name : "";
+      $("fac-notes").value = faction ? faction.notes : "";
+      $("faction-message").textContent = "";
+      $("faction-editor").showModal();
+      $("fac-name").focus();
+    }
+
+    function moveFaction(faction, delta) {
+      const index = factions.indexOf(faction);
+      const target = index + delta;
+      if (target < 0 || target >= factions.length) return;
+      [factions[index], factions[target]] = [factions[target], factions[index]];
+      changed();
+    }
+
+    function deleteFaction(faction) {
+      if (!confirm(`Delete the faction "${faction.name}"? Its clocks and counters stay, but move out of it.`)) return;
+      factions = factions.filter((f) => f !== faction);
+      clocks.forEach((c) => { if (c.factionId === faction.id) c.factionId = null; });
+      counters.forEach((c) => { if (c.factionId === faction.id) c.factionId = null; });
+      showNote(`Deleted "${faction.name}".`);
+      changed();
+    }
+
+    $("add-faction").addEventListener("click", () => openFactionEditor(null));
+    $("fac-cancel").addEventListener("click", () => $("faction-editor").close());
+
+    $("faction-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = $("fac-name").value.trim();
+      if (!name) {
+        $("faction-message").textContent = "Give the faction a name.";
+        return;
+      }
+      const notes = $("fac-notes").value.trim();
+      if (editingFaction) {
+        editingFaction.name = name;
+        editingFaction.notes = notes;
+      } else {
+        factions.push({ id: newId(), name, notes });
+      }
+      $("faction-editor").close();
+      changed();
+    });
+
+    // Counters
+    function findCounter(id) {
+      return counters.find((c) => c.id === id) || null;
+    }
+
+    function moveCounter(counter, delta) {
+      const index = counters.indexOf(counter);
+      const target = index + delta;
+      if (target < 0 || target >= counters.length) return;
+      [counters[index], counters[target]] = [counters[target], counters[index]];
+      changed();
+    }
+
+    function deleteCounter(counter) {
+      if (!confirm(`Delete "${counter.label}"? This can't be undone.`)) return;
+      counters = counters.filter((c) => c !== counter);
+      showNote(`Deleted "${counter.label}".`);
+      changed();
+    }
+
+    appRoot.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action], button[data-counter-action]");
+      if (!button) return;
+      const card = button.closest("[data-counter-id]");
+      if (!card) return;
+      const counter = findCounter(card.dataset.counterId);
+      if (!counter) return;
+      if (button.dataset.action === "menu") return openMenu(button, counter, "counter");
+      const action = button.dataset.counterAction;
+      if (action === "plus" || action === "minus") {
+        showNote("");
+        stepCounter(counter, action === "plus" ? 1 : -1);
+        changed();
+      }
+    });
+
+    appRoot.addEventListener("keydown", (event) => {
+      if (event.target.dataset.counterAction !== "type" || event.key !== "Enter") return;
+      const card = event.target.closest("[data-counter-id]");
+      const counter = findCounter(card.dataset.counterId);
+      if (!counter) return;
+      const text = event.target.value.trim();
+      const number = Number(text);
+      if (text === "" || !Number.isInteger(number)) {
+        showNote(`"${text}" is not a whole number.`);
+        event.target.value = counter.value;
+        return;
+      }
+      try {
+        setCounterValue(counter, number);
+        showNote("");
+        changed();
+      } catch (err) {
+        showNote(err.message);
+        event.target.value = counter.value;
+      }
+    });
+
+    function openCounterEditor(counter) {
+      editingCounter = counter;
+      $("counter-title").textContent = counter ? "Edit counter" : "New counter";
+      $("c-label").value = counter ? counter.label : "";
+      $("c-start").value = counter ? counter.value : 0;
+      $("c-start").disabled = Boolean(counter);
+      $("c-min-on").checked = counter ? counter.min !== null : false;
+      $("c-min").value = counter && counter.min !== null ? counter.min : 0;
+      $("c-max-on").checked = counter ? counter.max !== null : false;
+      $("c-max").value = counter && counter.max !== null ? counter.max : 10;
+      $("c-visible").checked = counter ? counter.visible : true;
+      fillFactionSelect($("c-faction"), counter ? counter.factionId : null);
+      syncLimitInputs();
+      $("counter-message").textContent = "";
+      $("counter-editor").showModal();
+      $("c-label").focus();
+    }
+
+    function syncLimitInputs() {
+      $("c-min").disabled = !$("c-min-on").checked;
+      $("c-max").disabled = !$("c-max-on").checked;
+    }
+
+    $("add-counter").addEventListener("click", () => openCounterEditor(null));
+    $("c-min-on").addEventListener("change", syncLimitInputs);
+    $("c-max-on").addEventListener("change", syncLimitInputs);
+    $("c-cancel").addEventListener("click", () => $("counter-editor").close());
+
+    $("counter-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const message = $("counter-message");
+      const label = $("c-label").value.trim();
+      if (!label) {
+        message.textContent = "Give the counter a label.";
+        return;
+      }
+      const min = $("c-min-on").checked ? Number($("c-min").value) : null;
+      const max = $("c-max-on").checked ? Number($("c-max").value) : null;
+      if ((min !== null && !Number.isInteger(min)) || (max !== null && !Number.isInteger(max))) {
+        message.textContent = "Limits must be whole numbers.";
+        return;
+      }
+      if (min !== null && max !== null && min > max) {
+        message.textContent = "The minimum can't be more than the maximum.";
+        return;
+      }
+      const visible = $("c-visible").checked;
+
+      if (editingCounter) {
+        if (!counterInRange({ min, max }, editingCounter.value)) {
+          message.textContent = `The current value ${editingCounter.value} is outside these limits.`;
+          return;
+        }
+        editingCounter.label = label;
+        editingCounter.min = min;
+        editingCounter.max = max;
+        editingCounter.visible = visible;
+        editingCounter.factionId = $("c-faction").value || null;
+      } else {
+        const start = Number($("c-start").value);
+        if (!Number.isInteger(start)) {
+          message.textContent = "Start value must be a whole number.";
+          return;
+        }
+        try {
+          counters.push(makeCounter({ label, value: start, min, max, visible,
+                                     factionId: $("c-faction").value || null }));
+        } catch (err) {
+          message.textContent = err.message;
+          return;
+        }
+      }
+      $("counter-editor").close();
+      changed();
+    });
+
+    // Color palette for a swatch
+    const paletteGrid = $("palette-grid");
+    const palette = $("palette");
+    const customColor = $("custom-color");
+
+    paletteGrid.innerHTML = PRESET_COLORS.map((color) =>
+      `<button type="button" data-color="${color}" style="background:${color}" aria-label="${color}"></button>`
+    ).join("");
+
+    function openPalette(button, clock, slot) {
+      paletteClock = clock;
+      paletteSlot = slot;
+      customColor.value = clock[slot] || (slot === "color" ? DEFAULT_FILLED : DEFAULT_EMPTY);
+      const rect = button.getBoundingClientRect();
+      palette.style.top = `${rect.bottom + window.scrollY + 8}px`;
+      palette.style.left = `${Math.max(8, rect.left + window.scrollX - 60)}px`;
+      palette.hidden = false;
+    }
+
+    function closePalette() {
+      palette.hidden = true;
+      paletteClock = null;
+      paletteSlot = null;
+    }
+
+    function applyPaletteColor(value) {
+      if (!paletteClock) return;
+      paletteClock[paletteSlot] = value;
+      closePalette();
+      changed();
+    }
+
+    palette.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-color]");
+      if (!button) return;
+      applyPaletteColor(button.dataset.color === "default" ? "" : button.dataset.color);
+    });
+
+    // Dragging the custom picker previews live. The change is recorded when it closes.
+    customColor.addEventListener("input", () => {
+      if (!paletteClock) return;
+      paletteClock[paletteSlot] = customColor.value;
+      render();
+    });
+    customColor.addEventListener("change", () => {
+      if (!paletteClock) return;
+      const value = customColor.value;
+      applyPaletteColor(value);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (palette.hidden) return;
+      if (palette.contains(event.target)) return;
+      if (event.target.closest('[data-action="pick"]')) return;
+      closePalette();
+    });
+
+    // Select mode: pick several items and delete them together.
+    function pickBox(key) {
+      if (!selectMode) return "";
+      return `<label class="pick"><input type="checkbox" data-select="${key}" ${multi.has(key) ? "checked" : ""} aria-label="Select this item"></label>`;
+    }
+
+    function allKeys() {
+      return [
+        ...clocks.map((c) => "k:" + c.id),
+        ...counters.map((c) => "c:" + c.id),
+        ...factions.map((f) => "f:" + f.id),
+      ];
+    }
+
+    function updateSelectBar() {
+      $("select-count").textContent = `${multi.size} selected`;
+      $("delete-selected").disabled = multi.size === 0;
+    }
+
+    function setSelectMode(on) {
+      selectMode = on;
+      if (!on) multi.clear();
+      document.body.classList.toggle("select-on", on);
+      $("select-mode").setAttribute("aria-pressed", String(on));
+      $("select-bar").hidden = !on;
+      updateSelectBar();
+      render();
+    }
+
+    $("select-mode").addEventListener("click", () => setSelectMode(!selectMode));
+    $("select-done").addEventListener("click", () => setSelectMode(false));
+    $("select-all").addEventListener("click", () => {
+      allKeys().forEach((k) => multi.add(k));
+      updateSelectBar();
+      render();
+    });
+    $("select-clear").addEventListener("click", () => {
+      multi.clear();
+      updateSelectBar();
+      render();
+    });
+
+    appRoot.addEventListener("change", (event) => {
+      const box = event.target;
+      if (!(box instanceof HTMLInputElement) || !box.dataset.select) return;
+      if (box.checked) multi.add(box.dataset.select);
+      else multi.delete(box.dataset.select);
+      updateSelectBar();
+    });
+
+    $("delete-selected").addEventListener("click", () => {
+      if (!multi.size) return;
+      const n = multi.size;
+      if (!confirm(`Delete ${n} selected item${n === 1 ? "" : "s"}? Ctrl+Z can bring them back.`)) return;
+      const removedClockIds = new Set();
+      const removedFactionIds = new Set();
+      for (const key of multi) {
+        if (key.startsWith("f:")) removedFactionIds.add(key.slice(2));
+      }
+      clocks = clocks.filter((c) => {
+        if (multi.has("k:" + c.id)) { removedClockIds.add(c.id); return false; }
+        return true;
+      });
+      counters = counters.filter((c) => !multi.has("c:" + c.id));
+      factions = factions.filter((f) => !multi.has("f:" + f.id));
+      clocks.forEach((c) => {
+        c.links = c.links.filter((l) => !removedClockIds.has(l.targetId));
+        if (removedFactionIds.has(c.factionId)) c.factionId = null;
+      });
+      counters.forEach((c) => {
+        if (removedFactionIds.has(c.factionId)) c.factionId = null;
+      });
+      showNote(`Deleted ${n} item${n === 1 ? "" : "s"}.`);
+      setSelectMode(false);
+      changed();
+    });
+
+    $("delete-everything").addEventListener("click", () => {
+      if (!confirm("Delete EVERY clock, counter, faction, and note in this campaign?")) return;
+      if (!confirm("Last check: this is the whole campaign. Delete it all?")) return;
+      clocks = [];
+      counters = [];
+      factions = [];
+      notes = "";
+      $("settings").close();
+      setSelectMode(false);
+      showNote("Everything was deleted. Ctrl+Z can bring it back this session.");
+      changed();
+    });
+
+    // Selection: click a card to select it, then + and - change it.
+    function findSelected() {
+      if (!selected) return null;
+      if (selected.kind === "clock") return findClock(selected.id);
+      return findCounter(selected.id);
+    }
+
+    function updateSelection() {
+      document.querySelectorAll(".card.selected").forEach((el) => el.classList.remove("selected"));
+      if (!findSelected()) {
+        selected = null;
+        return;
+      }
+      const selector = selected.kind === "clock"
+        ? `.card[data-id="${selected.id}"]`
+        : `.card[data-counter-id="${selected.id}"]`;
+      document.querySelectorAll(selector).forEach((el) => el.classList.add("selected"));
+    }
+
+    appRoot.addEventListener("click", (event) => {
+      if (isPlayerView) return;
+      const card = event.target.closest(".card[data-id], .card[data-counter-id]");
+      if (!card) return;
+      selected = card.dataset.id
+        ? { kind: "clock", id: card.dataset.id }
+        : { kind: "counter", id: card.dataset.counterId };
+      updateSelection();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (isPlayerView || !selected) return;
+      if (event.target instanceof Element && event.target.matches("input, textarea, select")) return;
+      if (document.querySelector("dialog[open]") || event.ctrlKey || event.metaKey) return;
+      const delta = event.key === "+" || event.key === "=" ? 1 : event.key === "-" ? -1 : 0;
+      if (!delta) return;
+      const item = findSelected();
+      if (!item) return;
+      event.preventDefault();
+      if (selected.kind === "clock") {
+        applyStep(item, delta);
+      } else {
+        showNote("");
+        stepCounter(item, delta);
+        changed();
+      }
+    });
+
+    // Clock menu
+    function openMenu(button, clock, kind = "clock") {
+      menuClock = clock;
+      menuKind = kind;
+      menu.querySelector('[data-menu="links"]').hidden = kind !== "clock";
+      const rect = button.getBoundingClientRect();
+      menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+      menu.style.left = `${Math.max(8, rect.right + window.scrollX - 170)}px`;
+      menu.hidden = false;
+      menu.querySelector("button").focus();
+    }
+
+    function closeMenu() {
+      menu.hidden = true;
+      menuClock = null;
+    }
+
+    menu.addEventListener("click", (event) => {
+      const action = event.target.closest("button[data-menu]")?.dataset.menu;
+      const item = menuClock;
+      const kind = menuKind;
+      closeMenu();
+      if (!item || !action) return;
+      if (kind === "faction") {
+        if (action === "edit") return openFactionEditor(item);
+        if (action === "up") return moveFaction(item, -1);
+        if (action === "down") return moveFaction(item, 1);
+        if (action === "delete") return deleteFaction(item);
+        return;
+      }
+      if (kind === "counter") {
+        if (action === "edit") return openCounterEditor(item);
+        if (action === "up") return moveCounter(item, -1);
+        if (action === "down") return moveCounter(item, 1);
+        if (action === "delete") return deleteCounter(item);
+        return;
+      }
+      if (action === "edit") return openEditor(item);
+      if (action === "links") return openLinks(item);
+      if (action === "up") return moveClock(item, -1);
+      if (action === "down") return moveClock(item, 1);
+      if (action === "delete") return deleteClock(item);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (menu.hidden) return;
+      if (menu.contains(event.target)) return;
+      if (event.target.closest('[data-action="menu"]')) return;
+      closeMenu();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !menu.hidden) closeMenu();
+      if (event.key === "Escape" && !palette.hidden) closePalette();
+    });
+
+    function moveClock(clock, delta) {
+      const index = clocks.indexOf(clock);
+      const target = index + delta;
+      if (target < 0 || target >= clocks.length) return;
+      [clocks[index], clocks[target]] = [clocks[target], clocks[index]];
+      changed();
+    }
+
+    function deleteClock(clock) {
+      if (!confirm(`Delete "${clock.name}"? This can't be undone.`)) return;
+      clocks = clocks.filter((c) => c !== clock);
+      clocks.forEach((c) => {
+        c.links = c.links.filter((link) => link.targetId !== clock.id);
+      });
+      showNote(`Deleted "${clock.name}".`);
+      changed();
+    }
+
+    // Add and edit
+    function openEditor(clock) {
+      editingClock = clock;
+      $("editor-title").textContent = clock ? "Edit clock" : "New clock";
+      $("f-name").value = clock ? clock.name : "";
+      $("f-slices").value = clock ? String(clock.slices) : "8";
+      $("f-slices").disabled = Boolean(clock);
+      $("f-start").value = clock ? clock.value : 1;
+      $("f-start").disabled = Boolean(clock);
+      document.querySelectorAll('input[name="kind"]').forEach((radio) => {
+        radio.checked = clock ? radio.value === clock.kind : radio.value === "standard";
+        radio.disabled = Boolean(clock);
+      });
+      $("f-visible").checked = clock ? clock.visible : true;
+      $("f-locked").checked = false;
+      $("f-locked").disabled = Boolean(clock);
+      fillFactionSelect($("f-faction"), clock ? clock.factionId : null);
+      editorMessage.textContent = "";
+      editor.showModal();
+      $("f-name").focus();
+    }
+
+    $("add").addEventListener("click", () => openEditor(null));
+    $("cancel").addEventListener("click", () => editor.close());
+
+    editorForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = $("f-name").value.trim();
+      if (!name) {
+        editorMessage.textContent = "Give the clock a name.";
+        return;
+      }
+      const visible = $("f-visible").checked;
+
+      if (editingClock) {
+        editingClock.name = name;
+        editingClock.visible = visible;
+        editingClock.factionId = $("f-faction").value || null;
+      } else {
+        const kind = document.querySelector('input[name="kind"]:checked').value;
+        const start = Number($("f-start").value);
+        const slices = Number($("f-slices").value);
+        if (!Number.isInteger(slices) || slices < 1) {
+          editorMessage.textContent = "Slices must be a whole number, 1 or more.";
+          return;
+        }
+        if (!Number.isInteger(start)) {
+          editorMessage.textContent = "Start value must be a whole number.";
+          return;
+        }
+        try {
+          clocks.push(makeClock({
+            name,
+            slices,
+            kind,
+            value: start,
+            visible,
+            locked: $("f-locked").checked,
+            factionId: $("f-faction").value || null,
+            color: settings.filledColor === DEFAULT_FILLED ? "" : settings.filledColor,
+            emptyColor: settings.emptyColor === DEFAULT_EMPTY ? "" : settings.emptyColor,
+          }));
+        } catch (err) {
+          editorMessage.textContent = err.message;
+          return;
+        }
+      }
+      editor.close();
+      changed();
+    });
+
+    // Links
+    function openLinks(clock) {
+      linksClock = clock;
+      $("links-title").textContent = `Links: ${clock.name}`;
+      $("links-message").textContent = "";
+      const others = clocks.filter((c) => c !== clock);
+      $("link-target").innerHTML = others
+        .map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
+        .join("");
+      $("link-add").disabled = others.length === 0;
+      $("links-message").textContent = others.length ? "" : "Create another clock first.";
+      renderLinks();
+      $("links").showModal();
+    }
+
+    function renderLinks() {
+      const list = $("link-list");
+      if (!linksClock || !linksClock.links.length) {
+        list.innerHTML = "<li>No links yet.</li>";
+        return;
+      }
+      list.innerHTML = linksClock.links.map((link, index) => {
+        const target = findClock(link.targetId);
+        const name = target ? escapeHtml(target.name) : "(deleted clock)";
+        return `<li><span>${ACTION_TEXT[link.action] || link.action} &ldquo;${name}&rdquo;</span>` +
+               `<button class="text-button" type="button" data-remove="${index}">Remove</button></li>`;
+      }).join("");
+    }
+
+    $("link-list").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove]");
+      if (!button || !linksClock) return;
+      linksClock.links.splice(Number(button.dataset.remove), 1);
+      changed();
+      renderLinks();
+    });
+
+    $("link-add").addEventListener("click", () => {
+      const targetId = $("link-target").value;
+      if (!linksClock || !targetId) return;
+      linksClock.links.push({ targetId, action: $("link-action").value });
+      changed();
+      renderLinks();
+    });
+
+    $("links-done").addEventListener("click", () => $("links").close());
+
+    // Settings
+    function openSettings() {
+      $("s-autosave").checked = settings.autosave;
+      $("s-status").checked = settings.showStatus;
+      renderPresets();
+      $("s-filled").value = settings.filledColor;
+      $("s-empty").value = settings.emptyColor;
+      $("settings").showModal();
+    }
+
+    $("settings-open").addEventListener("click", openSettings);
+    $("s-done").addEventListener("click", () => $("settings").close());
+    $("s-save-now").addEventListener("click", saveNow);
+    $("s-autosave").addEventListener("change", (event) => {
+      settings.autosave = event.target.checked;
+      saveSettings();
+      if (settings.autosave && dirty) save();
+      showNote(settings.autosave ? "Autosave is on." : "Autosave is off. Use Save now to keep changes.");
+    });
+    $("s-status").addEventListener("change", (event) => {
+      settings.showStatus = event.target.checked;
+      saveSettings();
+      render();
+    });
+    $("s-filled").addEventListener("change", (event) => {
+      settings.filledColor = event.target.value;
+      saveSettings();
+    });
+    $("s-empty").addEventListener("change", (event) => {
+      settings.emptyColor = event.target.value;
+      saveSettings();
+    });
+    $("s-reset-colors").addEventListener("click", () => {
+      settings.filledColor = DEFAULT_FILLED;
+      settings.emptyColor = DEFAULT_EMPTY;
+      $("s-filled").value = DEFAULT_FILLED;
+      $("s-empty").value = DEFAULT_EMPTY;
+      saveSettings();
+    });
+
+    // Undo and redo buttons and shortcuts
+    $("undo").addEventListener("click", undo);
+    $("redo").addEventListener("click", redo);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.target instanceof Element && event.target.matches("input, textarea, select")) return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redo();
+      }
+    });
+
+    // Export and import
+    $("export").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify({ version: 4, clocks, counters, factions, notes }, null, 2)],
+                            { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "clock-campaign.json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showNote("Campaign exported.");
+    });
+
+    $("import").addEventListener("click", () => importFile.click());
+
+    importFile.addEventListener("change", async () => {
+      const file = importFile.files[0];
+      importFile.value = "";
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        showNote("That file is too large to be a campaign (over 5 MB).");
+        return;
+      }
+      try {
+        const data = JSON.parse(await file.text());
+        if (!Array.isArray(data.clocks)) {
+          throw new Error("This file doesn't contain any clocks.");
+        }
+        const importedClocks = data.clocks.map((c) => makeClock(c));
+        const importedCounters = (data.counters || []).map((c) => makeCounter(c));
+        const importedFactions = (data.factions || []).map(makeFaction);
+        const current = clocks.length + counters.length;
+        const incoming = importedClocks.length + importedCounters.length;
+        if (current && !confirm(`Replace the current ${current} item(s) with ${incoming} from this file?`)) {
+          return;
+        }
+        clocks = importedClocks;
+        counters = importedCounters;
+        factions = importedFactions;
+        notes = (typeof data.notes === "string" ? data.notes : "");
+        showNote(`Imported ${importedClocks.length} clock(s) and ${importedCounters.length} counter(s).`);
+        changed();
+      } catch (err) {
+        showNote("Could not import that file: " + err.message);
+      }
+    });
+
+    loadSettings();
+    applyThemeVars(settings.theme);
+    load();
+    if (!isPlayerView) writePlayerSnapshot();
+    lastState = campaignSnapshot();
+    render();
+    updateHistory();
+  </script>
+</body>
+</html>
